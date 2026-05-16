@@ -1,0 +1,826 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>VOYA — Traveler Profile</title>
+  <meta name="description" content="Explore this traveler's journey on VOYA — the AI-powered travel journal community." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet" />
+
+  <style>
+    :root {
+      --void:   #020408;
+      --deep:   #060d1a;
+      --dim:    #1a2d45;
+      --muted:  #4a6080;
+      --star:   #e8f4ff;
+      --glow:   #4fc3f7;
+      --aurora: #00e5cc;
+      --pulse:  #ff6b6b;
+      --gold:   #ffd54f;
+      --font-display: 'Syne', sans-serif;
+      --font-body:    'Space Mono', monospace;
+      --font-serif:   'Instrument Serif', serif;
+      --ease: cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      background: var(--void);
+      color: var(--star);
+      font-family: var(--font-body);
+      overflow-x: hidden;
+      -webkit-font-smoothing: antialiased;
+      min-height: 100vh;
+    }
+
+    @media (pointer: fine) {
+      html, body, a, button, input, textarea { cursor: none !important; }
+    }
+
+    /* CURSOR */
+    #cursor, #cursor-ring {
+      display: none; position: fixed; top: 0; left: 0;
+      pointer-events: none; z-index: 9999;
+      transform: translate(-50%, -50%);
+    }
+    #cursor { width: 10px; height: 10px; background: var(--aurora); border-radius: 50%; mix-blend-mode: screen; }
+    #cursor-ring { width: 34px; height: 34px; border: 1px solid rgba(79,195,247,.45); border-radius: 50%; transition: width .25s var(--ease), height .25s var(--ease); }
+    #cursor.hov { width: 16px; height: 16px; }
+    #cursor-ring.hov { width: 52px; height: 52px; border-color: var(--aurora); }
+    @media (pointer: fine) { #cursor, #cursor-ring { display: block; } }
+
+    /* CANVAS */
+    #star-canvas { position: fixed; inset: 0; z-index: 0; pointer-events: none; }
+    .nebula { position: fixed; inset: 0; z-index: 0; pointer-events: none;
+      background: radial-gradient(ellipse 70% 55% at 20% 20%, rgba(0,229,204,.05) 0%, transparent 60%),
+                  radial-gradient(ellipse 55% 70% at 80% 80%, rgba(79,195,247,.06) 0%, transparent 60%); }
+
+    /* NAV */
+    nav {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+      padding: 20px clamp(24px,5vw,80px);
+      display: flex; justify-content: space-between; align-items: center;
+      background: linear-gradient(to bottom, rgba(2,4,8,.92), transparent);
+      backdrop-filter: blur(4px);
+    }
+    .nav-logo { font-family: var(--font-display); font-weight: 800; font-size: 1.3rem; letter-spacing: .3em; text-decoration: none; color: var(--star); }
+    .nav-logo span { color: var(--aurora); }
+    .nav-right { display: flex; align-items: center; gap: 20px; }
+    .nav-back {
+      font-size: .65rem; letter-spacing: .2em; text-transform: uppercase;
+      color: var(--muted); text-decoration: none; display: flex; align-items: center; gap: 8px;
+      transition: color .25s;
+    }
+    .nav-back:hover { color: var(--aurora); }
+    .nav-back::before { content: '←'; }
+    .nav-user-pill {
+      padding: 8px 18px; border: 1px solid rgba(0,229,204,.25);
+      color: var(--aurora); font-size: .65rem; letter-spacing: .12em;
+      text-transform: uppercase; background: rgba(0,229,204,.06);
+    }
+
+    /* LAYOUT */
+    .page { position: relative; z-index: 1; padding-top: 100px; }
+    .container { padding-inline: clamp(24px,5vw,80px); }
+
+    /* PROFILE HERO */
+    .profile-hero {
+      padding: 60px clamp(24px,5vw,80px) 0;
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      gap: 40px;
+      align-items: flex-start;
+    }
+
+    /* AVATAR */
+    .avatar-wrap { position: relative; }
+    .avatar-ring {
+      position: absolute; inset: -8px; border-radius: 50%;
+      border: 1px solid rgba(0,229,204,.3);
+      animation: spin 20s linear infinite;
+    }
+    .avatar-ring::before {
+      content: ''; position: absolute; top: -4px; left: 50%; transform: translateX(-50%);
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--aurora); box-shadow: 0 0 12px var(--aurora);
+    }
+    .avatar {
+      width: 120px; height: 120px; border-radius: 50%;
+      background: linear-gradient(135deg, var(--glow), var(--aurora));
+      display: flex; align-items: center; justify-content: center;
+      font-family: var(--font-display); font-weight: 800; font-size: 2.5rem;
+      color: var(--void); position: relative; z-index: 1;
+      flex-shrink: 0;
+    }
+
+    /* PROFILE INFO */
+    .profile-info { padding-top: 8px; }
+    .profile-eyebrow {
+      font-size: .58rem; letter-spacing: .4em; text-transform: uppercase;
+      color: var(--aurora); margin-bottom: 10px;
+    }
+    .profile-name {
+      font-family: var(--font-display); font-weight: 800;
+      font-size: clamp(2rem, 5vw, 4rem); line-height: .95;
+      letter-spacing: -.02em; margin-bottom: 16px;
+    }
+    .profile-bio {
+      font-family: var(--font-serif); font-style: italic;
+      font-size: 1rem; color: rgba(232,244,255,.5); line-height: 1.7;
+      max-width: 480px; margin-bottom: 20px;
+    }
+    .profile-bio-empty { color: rgba(74,96,128,.5); font-style: italic; }
+    .profile-countries {
+      display: flex; flex-wrap: wrap; gap: 8px;
+    }
+    .country-tag {
+      padding: 4px 12px;
+      border: 1px solid rgba(79,195,247,.15);
+      background: rgba(79,195,247,.05);
+      color: rgba(232,244,255,.6);
+      font-size: .58rem; letter-spacing: .12em; text-transform: uppercase;
+    }
+
+    /* PROFILE ACTIONS */
+    .profile-actions { display: flex; flex-direction: column; gap: 10px; padding-top: 8px; }
+    .btn-edit {
+      padding: 12px 24px;
+      border: 1px solid rgba(0,229,204,.3);
+      color: var(--aurora); font-family: var(--font-body);
+      font-size: .68rem; letter-spacing: .12em; text-transform: uppercase;
+      background: transparent; transition: all .25s; white-space: nowrap;
+    }
+    .btn-edit:hover { background: rgba(0,229,204,.08); }
+    .btn-primary-sm {
+      padding: 12px 24px;
+      background: linear-gradient(135deg, var(--glow), var(--aurora));
+      color: var(--void); font-family: var(--font-display);
+      font-weight: 700; font-size: .68rem; letter-spacing: .1em;
+      text-transform: uppercase; border: none;
+      clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px));
+      transition: opacity .25s; white-space: nowrap;
+    }
+    .btn-primary-sm:hover { opacity: .85; }
+
+    /* STATS ROW */
+    .stats-row {
+      display: flex; gap: 0;
+      margin: 48px clamp(24px,5vw,80px) 0;
+      border: 1px solid rgba(79,195,247,.08);
+      background: rgba(6,13,26,.7);
+      backdrop-filter: blur(10px);
+    }
+    .stat-box {
+      flex: 1; padding: 24px 28px;
+      border-right: 1px solid rgba(79,195,247,.08);
+      transition: background .3s;
+    }
+    .stat-box:last-child { border-right: none; }
+    .stat-box:hover { background: rgba(0,229,204,.04); }
+    .stat-n {
+      font-family: var(--font-display); font-weight: 800;
+      font-size: clamp(1.6rem,3vw,2.4rem);
+      background: linear-gradient(135deg, var(--star), var(--glow));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+    }
+    .stat-l { font-size: .56rem; letter-spacing: .2em; text-transform: uppercase; color: var(--muted); margin-top: 4px; }
+
+    /* DIVIDER */
+    .divider {
+      height: 1px; margin: 64px clamp(24px,5vw,80px) 0;
+      background: linear-gradient(to right, transparent, rgba(79,195,247,.2), rgba(0,229,204,.3), rgba(79,195,247,.2), transparent);
+    }
+
+    /* JOURNALS SECTION */
+    .journals-section { padding: 64px clamp(24px,5vw,80px) 80px; }
+    .section-header { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 40px; }
+    .section-label { font-size: .58rem; letter-spacing: .4em; text-transform: uppercase; color: var(--aurora); margin-bottom: 12px; }
+    .section-title { font-family: var(--font-display); font-weight: 700; font-size: clamp(1.6rem,3vw,2.6rem); line-height: 1; letter-spacing: -.02em; }
+    .section-title em { font-style: normal; color: transparent; -webkit-text-stroke: 1px rgba(79,195,247,.4); }
+    .journal-count { font-size: .62rem; letter-spacing: .15em; color: var(--muted); }
+
+    /* JOURNAL CARDS */
+    .journals-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 2px; }
+    .journal-card {
+      padding: 32px 28px; background: rgba(6,13,26,.7);
+      border: 1px solid rgba(79,195,247,.06);
+      position: relative; overflow: hidden;
+      transition: background .3s, border-color .3s, transform .3s var(--ease);
+    }
+    .journal-card:hover { background: rgba(13,32,64,.7); border-color: rgba(0,229,204,.2); transform: translateY(-2px); }
+    .journal-card::before {
+      content: ''; position: absolute; top: 0; left: 0; width: 0; height: 2px;
+      background: linear-gradient(to right, var(--aurora), var(--glow));
+      transition: width .4s var(--ease);
+    }
+    .journal-card:hover::before { width: 100%; }
+    .journal-loc { font-size: .54rem; letter-spacing: .2em; color: var(--aurora); text-transform: uppercase; margin-bottom: 12px; }
+    .journal-title { font-family: var(--font-serif); font-size: 1.1rem; line-height: 1.45; color: var(--star); margin-bottom: 12px; }
+    .journal-content { font-size: .72rem; line-height: 1.75; color: rgba(232,244,255,.4); margin-bottom: 20px; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+    .journal-footer { display: flex; justify-content: space-between; align-items: center; }
+    .journal-date { font-size: .56rem; letter-spacing: .1em; color: var(--muted); }
+    .journal-mood {
+      padding: 3px 10px; border: 1px solid rgba(0,229,204,.2);
+      color: var(--aurora); font-size: .52rem; letter-spacing: .12em; text-transform: uppercase;
+    }
+    .journal-delete {
+      position: absolute; top: 14px; right: 14px;
+      background: transparent; border: none;
+      color: rgba(255,107,107,.3); font-size: .8rem;
+      transition: color .2s; opacity: 0;
+    }
+    .journal-card:hover .journal-delete { opacity: 1; }
+    .journal-delete:hover { color: var(--pulse); }
+
+    /* EMPTY STATE */
+    .empty-state {
+      grid-column: 1 / -1;
+      padding: 80px 40px; text-align: center;
+      border: 1px dashed rgba(79,195,247,.1);
+    }
+    .empty-icon { font-size: 3rem; margin-bottom: 20px; opacity: .4; }
+    .empty-title { font-family: var(--font-display); font-size: 1.2rem; margin-bottom: 12px; color: rgba(232,244,255,.5); }
+    .empty-sub { font-family: var(--font-serif); font-style: italic; font-size: .9rem; color: var(--muted); }
+
+    /* LOADING */
+    .loading-state { grid-column: 1/-1; display: flex; justify-content: center; padding: 60px; }
+    .loader { width: 40px; height: 40px; border-radius: 50%; border: 2px solid rgba(79,195,247,.1); border-top-color: var(--aurora); animation: spin 1s linear infinite; }
+
+    /* EDIT MODAL */
+    .modal-overlay {
+      position: fixed; inset: 0; z-index: 500;
+      background: rgba(2,4,8,.9); backdrop-filter: blur(12px);
+      display: flex; align-items: center; justify-content: center;
+      opacity: 0; pointer-events: none; transition: opacity .3s;
+    }
+    .modal-overlay.open { opacity: 1; pointer-events: all; }
+    .modal {
+      width: 100%; max-width: 520px;
+      background: rgba(6,13,26,.98);
+      border: 1px solid rgba(0,229,204,.2);
+      padding: 48px 40px; position: relative;
+    }
+    .modal::before { content: ''; position: absolute; top: 0; left: 0; width: 80px; height: 2px; background: linear-gradient(to right, var(--aurora), transparent); }
+    .modal-title { font-family: var(--font-display); font-weight: 700; font-size: 1.4rem; margin-bottom: 32px; }
+    .modal-close { position: absolute; top: 16px; right: 16px; background: transparent; border: none; color: var(--muted); font-size: 1.2rem; transition: color .2s; }
+    .modal-close:hover { color: var(--star); }
+    .field { margin-bottom: 20px; }
+    .field label { display: block; font-size: .56rem; letter-spacing: .2em; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; }
+    .field input, .field textarea {
+      width: 100%; padding: 12px 16px;
+      background: rgba(2,4,8,.8); border: 1px solid rgba(79,195,247,.14);
+      color: var(--star); font-family: var(--font-body); font-size: .8rem;
+      outline: none; transition: border-color .25s; resize: vertical;
+    }
+    .field input:focus, .field textarea:focus { border-color: rgba(0,229,204,.4); }
+    .field textarea { min-height: 100px; }
+    .field-hint { font-size: .58rem; color: var(--muted); margin-top: 6px; }
+    .modal-actions { display: flex; gap: 12px; margin-top: 8px; }
+    .modal-error { color: var(--pulse); font-size: .7rem; margin-top: 12px; min-height: 18px; }
+    .modal-success { color: var(--aurora); font-size: .7rem; margin-top: 12px; min-height: 18px; }
+
+    /* WRITE JOURNAL MODAL */
+    .write-modal-overlay {
+      position: fixed; inset: 0; z-index: 500;
+      background: rgba(2,4,8,.92); backdrop-filter: blur(12px);
+      display: flex; align-items: center; justify-content: center;
+      opacity: 0; pointer-events: none; transition: opacity .3s;
+      padding: 20px;
+    }
+    .write-modal-overlay.open { opacity: 1; pointer-events: all; }
+    .write-modal {
+      width: 100%; max-width: 640px;
+      background: rgba(6,13,26,.98);
+      border: 1px solid rgba(0,229,204,.2);
+      padding: 48px 40px; position: relative;
+      max-height: 90vh; overflow-y: auto;
+    }
+    .write-modal::before { content: ''; position: absolute; top: 0; left: 0; width: 80px; height: 2px; background: linear-gradient(to right, var(--aurora), transparent); }
+
+    /* NOT OWNER */
+    .not-owner-banner {
+      display: flex; align-items: center; gap: 14px;
+      padding: 16px 20px;
+      background: rgba(0,229,204,.05);
+      border: 1px solid rgba(0,229,204,.15);
+      margin-bottom: 32px;
+      font-size: .72rem; color: rgba(232,244,255,.5);
+    }
+    .not-owner-banner span { color: var(--aurora); font-size: 1.1rem; }
+
+    /* ANIMATIONS */
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes fadeUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: none; } }
+    .fade-up { animation: fadeUp .7s var(--ease) forwards; opacity: 0; }
+    .delay-1 { animation-delay: .1s; }
+    .delay-2 { animation-delay: .2s; }
+    .delay-3 { animation-delay: .3s; }
+    .delay-4 { animation-delay: .4s; }
+
+    @media (max-width: 768px) {
+      .profile-hero { grid-template-columns: 1fr; gap: 24px; }
+      .profile-actions { flex-direction: row; flex-wrap: wrap; }
+      .stats-row { flex-wrap: wrap; }
+      .stat-box { min-width: 50%; border-right: none; border-bottom: 1px solid rgba(79,195,247,.08); }
+      .journals-grid { grid-template-columns: 1fr; }
+      .modal, .write-modal { padding: 32px 24px; }
+    }
+  </style>
+</head>
+<body>
+
+<div id="cursor" aria-hidden="true"></div>
+<div id="cursor-ring" aria-hidden="true"></div>
+<canvas id="star-canvas" aria-hidden="true"></canvas>
+<div class="nebula" aria-hidden="true"></div>
+
+<!-- NAV -->
+<nav>
+  <a href="/" class="nav-logo">VOY<span>A</span></a>
+  <div class="nav-right">
+    <a href="/" class="nav-back">All Journals</a>
+    <div class="nav-user-pill" id="nav-user-pill">◈ Loading</div>
+  </div>
+</nav>
+
+<!-- EDIT PROFILE MODAL -->
+<div class="modal-overlay" id="edit-overlay" role="dialog" aria-label="Edit profile">
+  <div class="modal">
+    <button class="modal-close" id="edit-close" aria-label="Close">&times;</button>
+    <h2 class="modal-title">Edit Profile</h2>
+    <div class="field">
+      <label>Bio</label>
+      <textarea id="edit-bio" placeholder="Tell the world how you wander…"></textarea>
+    </div>
+    <div class="field">
+      <label>Countries Visited</label>
+      <input type="text" id="edit-countries" placeholder="Nepal, Morocco, Iceland, Japan" />
+      <p class="field-hint">Separate with commas</p>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-primary-sm" id="save-profile-btn">Save Changes</button>
+      <button class="btn-edit" id="edit-cancel-btn">Cancel</button>
+    </div>
+    <div class="modal-error" id="edit-error"></div>
+    <div class="modal-success" id="edit-success"></div>
+  </div>
+</div>
+
+<!-- WRITE JOURNAL MODAL -->
+<div class="write-modal-overlay" id="write-overlay" role="dialog" aria-label="Write journal entry">
+  <div class="write-modal">
+    <button class="modal-close" id="write-close" aria-label="Close">&times;</button>
+    <h2 class="modal-title">New Journal Entry</h2>
+    <div class="field">
+      <label>Location</label>
+      <input type="text" id="write-location" placeholder="Kathmandu, Nepal" />
+    </div>
+    <div class="field">
+      <label>Your Story</label>
+      <textarea id="write-content" placeholder="Write your moment, memory, or wonder…" style="min-height:180px"></textarea>
+    </div>
+    <div class="field">
+      <label>Mood</label>
+      <input type="text" id="write-mood" placeholder="wonder" value="wonder" />
+    </div>
+    <div class="modal-actions">
+      <button class="btn-primary-sm" id="submit-journal-btn">Transmit Story</button>
+      <button class="btn-edit" id="write-cancel-btn">Cancel</button>
+    </div>
+    <div class="modal-error" id="write-error"></div>
+    <div class="modal-success" id="write-success"></div>
+  </div>
+</div>
+
+<!-- PAGE -->
+<main class="page">
+
+  <!-- PROFILE HERO -->
+  <div class="profile-hero container" id="profile-hero">
+    <div class="avatar-wrap fade-up">
+      <div class="avatar-ring" aria-hidden="true"></div>
+      <div class="avatar" id="profile-avatar">?</div>
+    </div>
+    <div class="profile-info fade-up delay-1">
+      <p class="profile-eyebrow">✦ Wanderer Profile</p>
+      <h1 class="profile-name" id="profile-name">Loading…</h1>
+      <p class="profile-bio" id="profile-bio"><span class="profile-bio-empty">No bio yet.</span></p>
+      <div class="profile-countries" id="profile-countries"></div>
+    </div>
+    <div class="profile-actions fade-up delay-2" id="profile-actions">
+      <!-- filled by JS -->
+    </div>
+  </div>
+
+  <!-- STATS -->
+  <div class="stats-row fade-up delay-3" role="region" aria-label="Profile statistics">
+    <div class="stat-box">
+      <div class="stat-n" id="stat-journals">—</div>
+      <div class="stat-l">Journals Written</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-n" id="stat-countries">—</div>
+      <div class="stat-l">Countries Visited</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-n" id="stat-words">—</div>
+      <div class="stat-l">Words Transmitted</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-n" id="stat-joined">—</div>
+      <div class="stat-l">Member Since</div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- JOURNALS -->
+  <section class="journals-section">
+    <div class="section-header">
+      <div class="fade-up delay-4">
+        <p class="section-label">✦ Transmissions</p>
+        <h2 class="section-title">Journey <em>entries</em></h2>
+      </div>
+      <span class="journal-count" id="journal-count"></span>
+    </div>
+    <div class="journals-grid" id="journals-grid">
+      <div class="loading-state"><div class="loader"></div></div>
+    </div>
+  </section>
+
+</main>
+
+<script>
+  /* ============================================================
+     CONFIG
+  ============================================================ */
+  const API = 'https://voya-api-production-9b77.up.railway.app/api';
+
+  /* ============================================================
+     AUTH STATE
+  ============================================================ */
+  const Auth = {
+    token: localStorage.getItem('voya_token'),
+    user:  JSON.parse(localStorage.getItem('voya_user') || 'null'),
+    isLoggedIn() { return !!this.token; }
+  };
+
+  /* ============================================================
+     API HELPERS
+  ============================================================ */
+  async function apiGet(path) {
+    const res = await fetch(API + path);
+    return res.json();
+  }
+  async function apiPost(path, body) {
+    const res = await fetch(API + path, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-auth-token': Auth.token || '' },
+      body: JSON.stringify(body)
+    });
+    return res.json();
+  }
+  async function apiPut(path, body) {
+    const res = await fetch(API + path, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'x-auth-token': Auth.token || '' },
+      body: JSON.stringify(body)
+    });
+    return res.json();
+  }
+  async function apiDelete(path) {
+    const res = await fetch(API + path, {
+      method: 'DELETE',
+      headers: { 'x-auth-token': Auth.token || '' }
+    });
+    return res.json();
+  }
+
+  /* ============================================================
+     GET USERNAME FROM URL
+  ============================================================ */
+  function getUsernameFromURL() {
+    const params = new URLSearchParams(window.location.search);
+    return params.get('user') || (Auth.user?.username) || null;
+  }
+
+  /* ============================================================
+     CUSTOM CURSOR
+  ============================================================ */
+  (function() {
+    if (!window.matchMedia('(pointer: fine)').matches) return;
+    const dot = document.getElementById('cursor');
+    const ring = document.getElementById('cursor-ring');
+    let mx = 0, my = 0, rx = 0, ry = 0;
+    document.addEventListener('mousemove', e => { mx = e.clientX; my = e.clientY; });
+    (function animate() {
+      rx += (mx - rx) * 0.14; ry += (my - ry) * 0.14;
+      dot.style.transform  = `translate(calc(${mx}px - 50%), calc(${my}px - 50%))`;
+      ring.style.transform = `translate(calc(${rx}px - 50%), calc(${ry}px - 50%))`;
+      requestAnimationFrame(animate);
+    })();
+    document.querySelectorAll('a,button,input,textarea').forEach(el => {
+      el.addEventListener('mouseenter', () => { dot.classList.add('hov'); ring.classList.add('hov'); });
+      el.addEventListener('mouseleave', () => { dot.classList.remove('hov'); ring.classList.remove('hov'); });
+    });
+  })();
+
+  /* ============================================================
+     STARFIELD
+  ============================================================ */
+  (function() {
+    const canvas = document.getElementById('star-canvas');
+    const ctx = canvas.getContext('2d');
+    let W, H, stars = [], raf;
+    function resize() { W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight; }
+    function mkStars() {
+      stars = Array.from({ length: 200 }, () => ({
+        x: Math.random() * W, y: Math.random() * H,
+        r: .3 + Math.random() * 1.8,
+        o: .05 + Math.random() * .7,
+        phase: Math.random() * Math.PI * 2,
+        tw: .5 + Math.random() * 2.5,
+        sp: .005 + Math.random() * .018,
+        color: Math.random() < .08 ? 'rgba(79,195,247,' : 'rgba(255,255,255,'
+      }));
+    }
+    let t = 0;
+    function draw() {
+      ctx.clearRect(0, 0, W, H); t += .016;
+      stars.forEach(s => {
+        const o = s.o * (.5 + .5 * Math.sin(t * s.tw + s.phase));
+        ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+        ctx.fillStyle = `${s.color}${o})`; ctx.fill();
+        s.y -= s.sp;
+        if (s.y < -4) { s.y = H + 4; s.x = Math.random() * W; }
+      });
+      raf = requestAnimationFrame(draw);
+    }
+    window.addEventListener('resize', () => { resize(); mkStars(); });
+    resize(); mkStars(); draw();
+  })();
+
+  /* ============================================================
+     RENDER PROFILE
+  ============================================================ */
+  function renderProfile(user) {
+    const initials = user.username.slice(0, 2).toUpperCase();
+    document.getElementById('profile-avatar').textContent = initials;
+    document.getElementById('profile-name').textContent = user.username;
+    document.title = `${user.username} — VOYA`;
+
+    const bioEl = document.getElementById('profile-bio');
+    bioEl.innerHTML = user.bio
+      ? user.bio
+      : '<span class="profile-bio-empty">No bio yet — every wanderer has a story waiting to be told.</span>';
+
+    const countriesEl = document.getElementById('profile-countries');
+    if (user.countries && user.countries.length > 0) {
+      countriesEl.innerHTML = user.countries.map(c =>
+        `<span class="country-tag">📍 ${c.trim()}</span>`
+      ).join('');
+    }
+
+    // Joined date
+    const joined = new Date(user.createdAt || Date.now());
+    document.getElementById('stat-joined').textContent =
+      joined.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+
+    document.getElementById('stat-countries').textContent =
+      user.countries?.length || 0;
+
+    // Actions
+    const actionsEl = document.getElementById('profile-actions');
+    const isOwner = Auth.isLoggedIn() && Auth.user?.username === user.username;
+
+    if (isOwner) {
+      actionsEl.innerHTML = `
+        <button class="btn-primary-sm" id="write-journal-btn">+ New Entry</button>
+        <button class="btn-edit" id="edit-profile-btn">Edit Profile</button>
+      `;
+      document.getElementById('edit-profile-btn').addEventListener('click', () => {
+        document.getElementById('edit-bio').value = user.bio || '';
+        document.getElementById('edit-countries').value = (user.countries || []).join(', ');
+        document.getElementById('edit-overlay').classList.add('open');
+      });
+      document.getElementById('write-journal-btn').addEventListener('click', () => {
+        document.getElementById('write-overlay').classList.add('open');
+      });
+    } else {
+      actionsEl.innerHTML = `
+        <button class="btn-primary-sm" id="connect-btn">Connect ◈</button>
+      `;
+      document.getElementById('connect-btn').addEventListener('click', () => {
+        if (!Auth.isLoggedIn()) { window.location.href = '/?auth=register'; }
+        else alert('Connection request sent! 🚀');
+      });
+    }
+  }
+
+  /* ============================================================
+     RENDER JOURNALS
+  ============================================================ */
+  function renderJournals(journals, username) {
+    const grid = document.getElementById('journals-grid');
+    const isOwner = Auth.isLoggedIn() && Auth.user?.username === username;
+
+    document.getElementById('stat-journals').textContent = journals.length;
+    document.getElementById('journal-count').textContent =
+      `${journals.length} entr${journals.length === 1 ? 'y' : 'ies'}`;
+
+    const totalWords = journals.reduce((acc, j) => acc + (j.content?.split(' ').length || 0), 0);
+    document.getElementById('stat-words').textContent =
+      totalWords > 1000 ? `${(totalWords/1000).toFixed(1)}K` : totalWords;
+
+    if (journals.length === 0) {
+      grid.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-icon">✍️</div>
+          <h3 class="empty-title">No journals yet</h3>
+          <p class="empty-sub">${isOwner ? 'Click "+ New Entry" to write your first story.' : 'This wanderer hasn\'t shared their story yet.'}</p>
+        </div>
+      `;
+      return;
+    }
+
+    grid.innerHTML = journals.map(j => {
+      const date = new Date(j.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+      const loc = j.location?.name ? `${j.location.name}${j.location.country ? ', ' + j.location.country : ''}` : 'Somewhere on Earth';
+      return `
+        <article class="journal-card" data-id="${j._id}">
+          ${isOwner ? `<button class="journal-delete" data-id="${j._id}" aria-label="Delete entry" title="Delete">✕</button>` : ''}
+          <div class="journal-loc">${loc}</div>
+          <h3 class="journal-title">${j.title}</h3>
+          <p class="journal-content">${j.content}</p>
+          <div class="journal-footer">
+            <span class="journal-date">${date}</span>
+            <span class="journal-mood">${j.mood || 'wonder'}</span>
+          </div>
+        </article>
+      `;
+    }).join('');
+
+    // Delete handlers
+    if (isOwner) {
+      grid.querySelectorAll('.journal-delete').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          if (!confirm('Delete this journal entry?')) return;
+          const id = btn.dataset.id;
+          await apiDelete(`/journals/${id}`);
+          btn.closest('.journal-card').style.opacity = '0';
+          setTimeout(() => {
+            btn.closest('.journal-card').remove();
+            const remaining = grid.querySelectorAll('.journal-card').length;
+            document.getElementById('stat-journals').textContent = remaining;
+            document.getElementById('journal-count').textContent = `${remaining} entr${remaining === 1 ? 'y' : 'ies'}`;
+          }, 300);
+        });
+      });
+    }
+  }
+
+  /* ============================================================
+     NAV STATE
+  ============================================================ */
+  function updateNav() {
+    const pill = document.getElementById('nav-user-pill');
+    if (Auth.isLoggedIn()) {
+      pill.textContent = `◈ ${Auth.user.username}`;
+      pill.style.color = 'var(--aurora)';
+    } else {
+      pill.textContent = 'Sign In';
+      pill.style.cursor = 'pointer';
+      pill.addEventListener('click', () => { window.location.href = '/'; });
+    }
+  }
+
+  /* ============================================================
+     EDIT PROFILE MODAL
+  ============================================================ */
+  (function() {
+    const overlay = document.getElementById('edit-overlay');
+    document.getElementById('edit-close').addEventListener('click', () => overlay.classList.remove('open'));
+    document.getElementById('edit-cancel-btn').addEventListener('click', () => overlay.classList.remove('open'));
+    overlay.addEventListener('click', e => { if (e.target === overlay) overlay.classList.remove('open'); });
+
+    document.getElementById('save-profile-btn').addEventListener('click', async () => {
+      const bio = document.getElementById('edit-bio').value.trim();
+      const countriesRaw = document.getElementById('edit-countries').value;
+      const countries = countriesRaw.split(',').map(c => c.trim()).filter(Boolean);
+      const errEl = document.getElementById('edit-error');
+      const sucEl = document.getElementById('edit-success');
+      const btn = document.getElementById('save-profile-btn');
+      btn.textContent = 'Saving…'; btn.disabled = true;
+      try {
+        const data = await apiPut('/auth/profile', { bio, countries });
+        if (data._id || data.username) {
+          sucEl.textContent = '✅ Profile updated!';
+          errEl.textContent = '';
+          // Update display
+          document.getElementById('profile-bio').textContent = bio || '';
+          const countriesEl = document.getElementById('profile-countries');
+          countriesEl.innerHTML = countries.map(c => `<span class="country-tag">📍 ${c}</span>`).join('');
+          document.getElementById('stat-countries').textContent = countries.length;
+          setTimeout(() => { overlay.classList.remove('open'); sucEl.textContent = ''; }, 1500);
+        } else {
+          errEl.textContent = data.message || 'Failed to save.';
+        }
+      } catch { errEl.textContent = 'Network error.'; }
+      btn.textContent = 'Save Changes'; btn.disabled = false;
+    });
+  })();
+
+  /* ============================================================
+     WRITE JOURNAL MODAL
+  ============================================================ */
+  (function() {
+    const overlay = document.getElementById('write-overlay');
+    document.getElementById('write-close').addEventListener('click', () => overlay.classList.remove('open'));
+    document.getElementById('write-cancel-btn').addEventListener('click', () => overlay.classList.remove('open'));
+    overlay.addEventListener('click', e => { if (e.target === overlay) overlay.classList.remove('open'); });
+
+    document.getElementById('submit-journal-btn').addEventListener('click', async () => {
+      const locationRaw = document.getElementById('write-location').value.trim();
+      const content = document.getElementById('write-content').value.trim();
+      const mood = document.getElementById('write-mood').value.trim() || 'wonder';
+      const errEl = document.getElementById('write-error');
+      const sucEl = document.getElementById('write-success');
+      const btn = document.getElementById('submit-journal-btn');
+
+      if (!content || content.length < 20) {
+        errEl.textContent = 'Please write at least a few sentences.'; return;
+      }
+
+      btn.textContent = 'Transmitting…'; btn.disabled = true;
+
+      const locationParts = locationRaw.split(',');
+      const location = locationRaw ? {
+        name: locationParts[0]?.trim(),
+        country: locationParts[1]?.trim() || ''
+      } : {};
+
+      try {
+        const data = await apiPost('/journals', {
+          title: content.split('.')[0].slice(0, 80) || 'A moment in time',
+          content, mood, isPublic: true, location
+        });
+        if (data._id) {
+          sucEl.textContent = '✅ Story transmitted!';
+          errEl.textContent = '';
+          document.getElementById('write-content').value = '';
+          document.getElementById('write-location').value = '';
+          setTimeout(() => {
+            overlay.classList.remove('open');
+            sucEl.textContent = '';
+            loadPage(); // refresh
+          }, 1200);
+        } else {
+          errEl.textContent = data.message || 'Failed to save.';
+        }
+      } catch { errEl.textContent = 'Network error.'; }
+      btn.textContent = 'Transmit Story'; btn.disabled = false;
+    });
+  })();
+
+  /* ============================================================
+     MAIN LOAD
+  ============================================================ */
+  async function loadPage() {
+    const username = getUsernameFromURL();
+    if (!username) {
+      document.getElementById('profile-name').textContent = 'User not found';
+      document.getElementById('journals-grid').innerHTML = `<div class="empty-state"><div class="empty-icon">🌍</div><h3 class="empty-title">No user specified</h3><p class="empty-sub">Add ?user=username to the URL</p></div>`;
+      return;
+    }
+
+    try {
+      // Load profile
+      const user = await apiGet(`/auth/profile/${username}`);
+      if (user.message) {
+        document.getElementById('profile-name').textContent = 'Wanderer not found';
+        return;
+      }
+      renderProfile(user);
+      updateNav();
+
+      // Load journals
+      const allJournals = await apiGet('/journals');
+      const userJournals = allJournals.filter(j =>
+        j.user?.username === username || j.user === user._id
+      );
+      renderJournals(userJournals, username);
+
+    } catch(e) {
+      console.error(e);
+      document.getElementById('profile-name').textContent = 'Error loading profile';
+    }
+  }
+
+  loadPage();
+</script>
+</body>
+</html>
