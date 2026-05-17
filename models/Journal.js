@@ -23,9 +23,7 @@ const JournalSchema = new mongoose.Schema({
       lng: Number
     }
   },
-  themes: [{
-    type: String
-  }],
+  themes: [{ type: String }],
   mood: {
     type: String,
     default: 'wonder'
@@ -44,6 +42,20 @@ const JournalSchema = new mongoose.Schema({
       ref: 'User'
     },
     percentage: Number
+  }],
+  comments: [{
+    user: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
+    },
+    text: {
+      type: String,
+      required: true
+    },
+    createdAt: {
+      type: Date,
+      default: Date.now
+    }
   }],
   createdAt: {
     type: Date,
