@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>VOYA — Journal</title>
+  <meta name="description" content="Read this travel journal entry on VOYA." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet" />
+
+  <style>
+    :root {
+      --void:   #020408;
+      --deep:   #060d1a;
+      --dim:    #1a2d45;
+      --muted:  #4a6080;
+      --star:   #e8f4ff;
+      --glow:   #4fc3f7;
+      --aurora: #00e5cc;
+      --pulse:  #ff6b6b;
+      --gold:   #ffd54f;
+      --font-display: 'Syne', sans-serif;
+      --font-body:    'Space Mono', monospace;
+      --font-serif:   'Instrument Serif', serif;
+      --ease: cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      background: var(--void);
+      color: var(--star);
+      font-family: var(--font-body);
+      overflow-x: hidden;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    @media (pointer: fine) {
+      html, body, a, button, input, textarea { cursor: none !important; }
+    }
+
+    /* CURSOR */
+    #cursor, #cursor-ring {
+      display: none; position: fixed; top: 0; left: 0;
+      pointer-events: none; z-index: 9999;
+      transform: translate(-50%, -50%);
+    }
+    #cursor { width: 10px; height: 10px; background: var(--aurora); border-radius: 50%; mix-blend-mode: screen; }
+    #cursor-ring { width: 34px; height: 34px; border: 1px solid rgba(79,195,247,.45); border-radius: 50%; transition: width .25s var(--ease), height .25s var(--ease); }
+    #cursor.hov { width: 16px; height: 16px; }
+    #cursor-ring.hov { width: 52px; height: 52px; border-color: var(--aurora); }
+    @media (pointer: fine) { #cursor, #cursor-ring { display: block; } }
+
+    /* CANVAS */
+    #star-canvas { position: fixed; inset: 0; z-index: 0; pointer-events: none; }
+    .nebula { position: fixed; inset: 0; z-index: 0; pointer-events: none;
+      background:
+        radial-gradient(ellipse 70% 55% at 20% 20%, rgba(0,229,204,.04) 0%, transparent 60%),
+        radial-gradient(ellipse 55% 70% at 80% 80%, rgba(79,195,247,.05) 0%, transparent 60%); }
+
+    /* NAV */
+    nav {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+      padding: 20px clamp(24px,5vw,80px);
+      display: flex; justify-content: space-between; align-items: center;
+      background: linear-gradient(to bottom, rgba(2,4,8,.92), transparent);
+      backdrop-filter: blur(4px);
+    }
+    .nav-logo { font-family: var(--font-display); font-weight: 800; font-size: 1.3rem; letter-spacing: .3em; text-decoration: none; color: var(--star); }
+    .nav-logo span { color: var(--aurora); }
+    .nav-right { display: flex; align-items: center; gap: 20px; }
+    .nav-back { font-size: .65rem; letter-spacing: .2em; text-transform: uppercase; color: var(--muted); text-decoration: none; display: flex; align-items: center; gap: 8px; transition: color .25s; }
+    .nav-back:hover { color: var(--aurora); }
+    .nav-back::before { content: '←'; }
+    .nav-user-pill { padding: 8px 18px; border: 1px solid rgba(0,229,204,.25); color: var(--aurora); font-size: .65rem; letter-spacing: .12em; text-transform: uppercase; background: rgba(0,229,204,.06); text-decoration: none; }
+
+    /* PAGE */
+    .page { position: relative; z-index: 1; padding-top: 120px; max-width: 800px; margin: 0 auto; padding-inline: clamp(24px,5vw,48px); padding-bottom: 120px; }
+
+    /* LOADING */
+    .loading { display: flex; justify-content: center; padding: 80px; }
+    .loader { width: 40px; height: 40px; border-radius: 50%; border: 2px solid rgba(79,195,247,.1); border-top-color: var(--aurora); animation: spin 1s linear infinite; }
+
+    /* JOURNAL HEADER */
+    .journal-header { margin-bottom: 56px; opacity: 0; animation: fadeUp .8s var(--ease) .2s forwards; }
+    .journal-loc {
+      display: inline-flex; align-items: center; gap: 8px;
+      font-size: .58rem; letter-spacing: .3em; text-transform: uppercase;
+      color: var(--aurora); margin-bottom: 24px;
+      padding: 6px 14px; border: 1px solid rgba(0,229,204,.2);
+      background: rgba(0,229,204,.06);
+    }
+    .journal-title {
+      font-family: var(--font-serif);
+      font-size: clamp(1.8rem, 5vw, 3rem);
+      line-height: 1.25; color: var(--star); margin-bottom: 32px;
+    }
+    .journal-meta {
+      display: flex; align-items: center; gap: 16px;
+      padding-bottom: 32px;
+      border-bottom: 1px solid rgba(79,195,247,.08);
+    }
+    .author-av {
+      width: 40px; height: 40px; border-radius: 50%;
+      background: linear-gradient(135deg, var(--glow), var(--aurora));
+      display: flex; align-items: center; justify-content: center;
+      font-family: var(--font-display); font-weight: 700; font-size: .8rem;
+      color: var(--void); flex-shrink: 0;
+    }
+    .author-info { flex: 1; }
+    .author-name { font-family: var(--font-display); font-size: .82rem; font-weight: 600; color: var(--star); margin-bottom: 3px; text-decoration: none; transition: color .2s; }
+    .author-name:hover { color: var(--aurora); }
+    .author-date { font-size: .58rem; letter-spacing: .1em; color: var(--muted); }
+    .journal-mood { padding: 5px 12px; border: 1px solid rgba(0,229,204,.2); color: var(--aurora); font-size: .55rem; letter-spacing: .15em; text-transform: uppercase; }
+
+    /* JOURNAL BODY */
+    .journal-body {
+      font-family: var(--font-serif); font-style: italic;
+      font-size: clamp(1rem, 2vw, 1.25rem); line-height: 1.9;
+      color: rgba(232,244,255,.75); margin-bottom: 56px;
+      white-space: pre-wrap;
+      opacity: 0; animation: fadeUp .8s var(--ease) .4s forwards;
+    }
+
+    /* ACTIONS */
+    .journal-actions {
+      display: flex; gap: 12px; margin-bottom: 64px;
+      padding-bottom: 48px; border-bottom: 1px solid rgba(79,195,247,.08);
+      opacity: 0; animation: fadeUp .8s var(--ease) .5s forwards;
+    }
+    .like-btn {
+      display: flex; align-items: center; gap: 8px;
+      padding: 12px 24px; border: 1px solid rgba(79,195,247,.15);
+      background: transparent; color: rgba(232,244,255,.6);
+      font-family: var(--font-body); font-size: .72rem; letter-spacing: .08em;
+      transition: all .25s;
+    }
+    .like-btn:hover, .like-btn.liked { border-color: var(--pulse); color: var(--pulse); background: rgba(255,107,107,.06); }
+    .like-btn .count { font-family: var(--font-display); font-weight: 700; }
+    .share-btn {
+      display: flex; align-items: center; gap: 8px;
+      padding: 12px 24px; border: 1px solid rgba(79,195,247,.15);
+      background: transparent; color: rgba(232,244,255,.6);
+      font-family: var(--font-body); font-size: .72rem; letter-spacing: .08em;
+      transition: all .25s;
+    }
+    .share-btn:hover { border-color: var(--aurora); color: var(--aurora); }
+    .profile-link-btn {
+      display: flex; align-items: center; gap: 8px;
+      padding: 12px 24px;
+      background: linear-gradient(135deg, var(--glow), var(--aurora));
+      color: var(--void); font-family: var(--font-display);
+      font-weight: 700; font-size: .72rem; letter-spacing: .1em;
+      text-transform: uppercase; border: none; text-decoration: none;
+      clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px));
+      transition: opacity .25s; margin-left: auto;
+    }
+    .profile-link-btn:hover { opacity: .85; }
+
+    /* COMMENTS */
+    .comments-section { opacity: 0; animation: fadeUp .8s var(--ease) .6s forwards; }
+    .comments-title {
+      font-family: var(--font-display); font-weight: 700;
+      font-size: 1.1rem; margin-bottom: 32px;
+      display: flex; align-items: center; gap: 12px;
+    }
+    .comments-count {
+      padding: 3px 10px; background: rgba(0,229,204,.08);
+      border: 1px solid rgba(0,229,204,.2);
+      color: var(--aurora); font-size: .6rem; letter-spacing: .1em;
+    }
+
+    /* COMMENT INPUT */
+    .comment-input-area {
+      margin-bottom: 40px; padding: 24px;
+      background: rgba(6,13,26,.8); border: 1px solid rgba(79,195,247,.1);
+      position: relative;
+    }
+    .comment-input-area::before { content: ''; position: absolute; top: 0; left: 0; width: 60px; height: 2px; background: linear-gradient(to right, var(--aurora), transparent); }
+    .comment-input-label { font-size: .55rem; letter-spacing: .25em; text-transform: uppercase; color: var(--aurora); margin-bottom: 12px; display: block; }
+    .comment-textarea {
+      width: 100%; background: transparent; border: none; outline: none;
+      color: var(--star); font-family: var(--font-serif); font-style: italic;
+      font-size: 1rem; line-height: 1.7; resize: none; min-height: 80px;
+    }
+    .comment-textarea::placeholder { color: rgba(74,96,128,.4); }
+    .comment-actions { display: flex; justify-content: space-between; align-items: center; margin-top: 16px; }
+    .comment-submit {
+      padding: 10px 24px;
+      background: linear-gradient(135deg, var(--glow), var(--aurora));
+      color: var(--void); font-family: var(--font-display);
+      font-weight: 700; font-size: .7rem; letter-spacing: .1em;
+      text-transform: uppercase; border: none; transition: opacity .25s;
+      clip-path: polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px));
+    }
+    .comment-submit:hover { opacity: .85; }
+    .comment-submit:disabled { opacity: .4; }
+    .comment-login-hint { font-size: .65rem; color: var(--muted); }
+    .comment-login-hint a { color: var(--aurora); text-decoration: none; }
+    .comment-error { color: var(--pulse); font-size: .65rem; margin-top: 8px; }
+
+    /* COMMENT LIST */
+    .comments-list { display: flex; flex-direction: column; gap: 0; }
+    .comment-item {
+      padding: 24px 0; border-bottom: 1px solid rgba(79,195,247,.06);
+      display: flex; gap: 14px; align-items: flex-start;
+      animation: fadeUp .5s var(--ease) forwards;
+    }
+    .comment-av {
+      width: 32px; height: 32px; border-radius: 50%; flex-shrink: 0;
+      background: linear-gradient(135deg, var(--glow), var(--aurora));
+      display: flex; align-items: center; justify-content: center;
+      font-size: .65rem; font-weight: 700; color: var(--void);
+      font-family: var(--font-display);
+    }
+    .comment-body { flex: 1; }
+    .comment-header { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+    .comment-author { font-family: var(--font-display); font-size: .78rem; font-weight: 600; color: var(--star); text-decoration: none; transition: color .2s; }
+    .comment-author:hover { color: var(--aurora); }
+    .comment-time { font-size: .56rem; letter-spacing: .08em; color: var(--muted); }
+    .comment-text { font-family: var(--font-serif); font-style: italic; font-size: .95rem; line-height: 1.7; color: rgba(232,244,255,.65); }
+    .comment-delete { margin-left: auto; background: transparent; border: none; color: rgba(255,107,107,.3); font-size: .7rem; transition: color .2s; }
+    .comment-delete:hover { color: var(--pulse); }
+
+    /* EMPTY COMMENTS */
+    .no-comments { padding: 48px; text-align: center; border: 1px dashed rgba(79,195,247,.08); }
+    .no-comments-icon { font-size: 2.5rem; margin-bottom: 16px; opacity: .3; }
+    .no-comments-text { font-family: var(--font-serif); font-style: italic; font-size: .9rem; color: var(--muted); }
+
+    /* NOT FOUND */
+    .not-found { text-align: center; padding: 80px 0; }
+    .not-found-title { font-family: var(--font-display); font-weight: 800; font-size: 3rem; margin-bottom: 16px; }
+    .not-found-sub { font-family: var(--font-serif); font-style: italic; color: var(--muted); font-size: 1rem; }
+
+    /* ANIMATIONS */
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes fadeUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: none; } }
+  </style>
+</head>
+<body>
+
+<div id="cursor" aria-hidden="true"></div>
+<div id="cursor-ring" aria-hidden="true"></div>
+<canvas id="star-canvas" aria-hidden="true"></canvas>
+<div class="nebula" aria-hidden="true"></div>
+
+<!-- NAV -->
+<nav>
+  <a href="/" class="nav-logo">VOY<span>A</span></a>
+  <div class="nav-right">
+    <a href="/" class="nav-back">All Journals</a>
+    <a href="#" class="nav-user-pill" id="nav-user-pill">◈ Loading</a>
+  </div>
+</nav>
+
+<!-- PAGE -->
+<main class="page" id="page-content">
+  <div class="loading"><div class="loader"></div></div>
+</main>
+
+<script>
+  /* ============================================================
+     CONFIG & AUTH
+  ============================================================ */
+  const API = 'https://voya-api-production-9b77.up.railway.app/api';
+  const Auth = {
+    token: localStorage.getItem('voya_token'),
+    user:  JSON.parse(localStorage.getItem('voya_user') || 'null'),
+    isLoggedIn() { return !!this.token; }
+  };
+
+  /* ============================================================
+     API HELPERS
+  ============================================================ */
+  async function apiGet(path) {
+    const res = await fetch(API + path);
+    return res.json();
+  }
+  async function apiPost(path, body) {
+    const res = await fetch(API + path, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-auth-token': Auth.token || '' },
+      body: JSON.stringify(body)
+    });
+    return res.json();
+  }
+  async function apiPut(path, body = {}) {
+    const res = await fetch(API + path, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'x-auth-token': Auth.token || '' },
+      body: JSON.stringify(body)
+    });
+    return res.json();
+  }
+  async function apiDelete(path) {
+    const res = await fetch(API + path, {
+      method: 'DELETE',
+      headers: { 'x-auth-token': Auth.token || '' }
+    });
+    return res.json();
+  }
+
+  /* ============================================================
+     CURSOR
+  ============================================================ */
+  (function() {
+    if (!window.matchMedia('(pointer: fine)').matches) return;
+    const dot = document.getElementById('cursor');
+    const ring = document.getElementById('cursor-ring');
+    let mx = 0, my = 0, rx = 0, ry = 0;
+    document.addEventListener('mousemove', e => { mx = e.clientX; my = e.clientY; });
+    (function animate() {
+      rx += (mx - rx) * 0.14; ry += (my - ry) * 0.14;
+      dot.style.transform  = `translate(calc(${mx}px - 50%), calc(${my}px - 50%))`;
+      ring.style.transform = `translate(calc(${rx}px - 50%), calc(${ry}px - 50%))`;
+      requestAnimationFrame(animate);
+    })();
+    document.addEventListener('mouseover', e => {
+      if (e.target.matches('a,button,input,textarea')) { dot.classList.add('hov'); ring.classList.add('hov'); }
+      else { dot.classList.remove('hov'); ring.classList.remove('hov'); }
+    });
+  })();
+
+  /* ============================================================
+     STARFIELD
+  ============================================================ */
+  (function() {
+    const canvas = document.getElementById('star-canvas');
+    const ctx = canvas.getContext('2d');
+    let W, H, stars = [];
+    function resize() { W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight; }
+    function mkStars() {
+      stars = Array.from({ length: 150 }, () => ({
+        x: Math.random() * W, y: Math.random() * H,
+        r: .3 + Math.random() * 1.5, o: .05 + Math.random() * .6,
+        phase: Math.random() * Math.PI * 2, tw: .5 + Math.random() * 2,
+        sp: .004 + Math.random() * .015,
+        color: Math.random() < .08 ? 'rgba(79,195,247,' : 'rgba(255,255,255,'
+      }));
+    }
+    let t = 0;
+    function draw() {
+      ctx.clearRect(0, 0, W, H); t += .016;
+      stars.forEach(s => {
+        const o = s.o * (.5 + .5 * Math.sin(t * s.tw + s.phase));
+        ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+        ctx.fillStyle = `${s.color}${o})`; ctx.fill();
+        s.y -= s.sp;
+        if (s.y < -4) { s.y = H + 4; s.x = Math.random() * W; }
+      });
+      requestAnimationFrame(draw);
+    }
+    window.addEventListener('resize', () => { resize(); mkStars(); });
+    resize(); mkStars(); draw();
+  })();
+
+  /* ============================================================
+     TIME FORMAT
+  ============================================================ */
+  function timeAgo(date) {
+    const diff = Math.floor((Date.now() - new Date(date)) / 1000);
+    if (diff < 60) return 'just now';
+    if (diff < 3600) return `${Math.floor(diff/60)}m ago`;
+    if (diff < 86400) return `${Math.floor(diff/3600)}h ago`;
+    if (diff < 604800) return `${Math.floor(diff/86400)}d ago`;
+    return new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  }
+
+  /* ============================================================
+     RENDER COMMENTS
+  ============================================================ */
+  function renderComments(comments, journalId) {
+    const list = document.getElementById('comments-list');
+    const countEl = document.getElementById('comments-count');
+    if (countEl) countEl.textContent = comments.length;
+
+    if (!comments || comments.length === 0) {
+      list.innerHTML = `
+        <div class="no-comments">
+          <div class="no-comments-icon">💬</div>
+          <p class="no-comments-text">No comments yet. Be the first to respond to this journey.</p>
+        </div>`;
+      return;
+    }
+
+    list.innerHTML = comments.map(c => {
+      const initials = (c.user?.username || 'WA').slice(0, 2).toUpperCase();
+      const isOwner = Auth.isLoggedIn() && Auth.user?.id === (c.user?._id || c.user);
+      return `
+        <div class="comment-item" id="comment-${c._id}">
+          <div class="comment-av">${initials}</div>
+          <div class="comment-body">
+            <div class="comment-header">
+              <a href="/profile.html?user=${c.user?.username || ''}" class="comment-author">${c.user?.username || 'Anonymous'}</a>
+              <span class="comment-time">${timeAgo(c.createdAt)}</span>
+              ${isOwner ? `<button class="comment-delete" data-id="${c._id}" data-journal="${journalId}" title="Delete comment">✕</button>` : ''}
+            </div>
+            <p class="comment-text">${c.text}</p>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    // Delete comment handlers
+    list.querySelectorAll('.comment-delete').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        if (!confirm('Delete this comment?')) return;
+        const cId = btn.dataset.id;
+        const jId = btn.dataset.journal;
+        await apiDelete(`/journals/${jId}/comments/${cId}`);
+        document.getElementById(`comment-${cId}`)?.remove();
+        const remaining = list.querySelectorAll('.comment-item').length;
+        if (countEl) countEl.textContent = remaining;
+        if (remaining === 0) renderComments([], journalId);
+      });
+    });
+  }
+
+  /* ============================================================
+     RENDER JOURNAL PAGE
+  ============================================================ */
+  function renderJournal(journal) {
+    const loc = journal.location?.name
+      ? `${journal.location.name}${journal.location.country ? ', ' + journal.location.country : ''}`
+      : 'Somewhere on Earth';
+
+    const initials = (journal.user?.username || 'WA').slice(0, 2).toUpperCase();
+    const date = new Date(journal.createdAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+    const likeCount = journal.likes?.length || 0;
+    const isLiked = Auth.isLoggedIn() && journal.likes?.some(l => l === Auth.user?.id || l._id === Auth.user?.id);
+    const comments = journal.comments || [];
+
+    document.title = `${journal.title} — VOYA`;
+
+    document.getElementById('page-content').innerHTML = `
+      <!-- JOURNAL HEADER -->
+      <header class="journal-header">
+        <div class="journal-loc">📍 ${loc}</div>
+        <h1 class="journal-title">${journal.title}</h1>
+        <div class="journal-meta">
+          <div class="author-av">${initials}</div>
+          <div class="author-info">
+            <a href="/profile.html?user=${journal.user?.username}" class="author-name">${journal.user?.username || 'Anonymous'}</a>
+            <div class="author-date">${date}</div>
+          </div>
+          <span class="journal-mood">${journal.mood || 'wonder'}</span>
+        </div>
+      </header>
+
+      <!-- JOURNAL BODY -->
+      <div class="journal-body">${journal.content}</div>
+
+      <!-- ACTIONS -->
+      <div class="journal-actions">
+        <button class="like-btn ${isLiked ? 'liked' : ''}" id="like-btn" data-id="${journal._id}">
+          ♥ <span class="count" id="like-count">${likeCount}</span> ${likeCount === 1 ? 'like' : 'likes'}
+        </button>
+        <button class="share-btn" id="share-btn">↗ Share</button>
+        <a href="/profile.html?user=${journal.user?.username}" class="profile-link-btn">View Profile</a>
+      </div>
+
+      <!-- COMMENTS -->
+      <section class="comments-section">
+        <h2 class="comments-title">
+          Responses
+          <span class="comments-count" id="comments-count">${comments.length}</span>
+        </h2>
+
+        <!-- COMMENT INPUT -->
+        <div class="comment-input-area">
+          <label class="comment-input-label" for="comment-input">Leave a response</label>
+          <textarea class="comment-textarea" id="comment-input" placeholder="${Auth.isLoggedIn() ? 'This story made me think of…' : 'Sign in to leave a response…'}" ${Auth.isLoggedIn() ? '' : 'disabled'}></textarea>
+          <div class="comment-actions">
+            ${Auth.isLoggedIn()
+              ? `<button class="comment-submit" id="comment-submit-btn">Transmit Response</button>`
+              : `<p class="comment-login-hint"><a href="/">Sign in</a> to leave a response</p>`
+            }
+          </div>
+          <div class="comment-error" id="comment-error"></div>
+        </div>
+
+        <!-- COMMENTS LIST -->
+        <div class="comments-list" id="comments-list"></div>
+      </section>
+    `;
+
+    // Render comments
+    renderComments(comments, journal._id);
+
+    // Like button
+    const likeBtn = document.getElementById('like-btn');
+    likeBtn?.addEventListener('click', async () => {
+      if (!Auth.isLoggedIn()) { window.location.href = '/'; return; }
+      const data = await apiPut(`/journals/${journal._id}/like`);
+      if (data.likes !== undefined) {
+        document.getElementById('like-count').textContent = data.likes;
+        likeBtn.classList.toggle('liked', data.liked);
+        likeBtn.innerHTML = `♥ <span class="count" id="like-count">${data.likes}</span> ${data.likes === 1 ? 'like' : 'likes'}`;
+      }
+    });
+
+    // Share button
+    document.getElementById('share-btn')?.addEventListener('click', () => {
+      navigator.clipboard.writeText(window.location.href);
+      const btn = document.getElementById('share-btn');
+      btn.textContent = '✓ Copied!';
+      setTimeout(() => { btn.textContent = '↗ Share'; }, 2000);
+    });
+
+    // Comment submit
+    document.getElementById('comment-submit-btn')?.addEventListener('click', async () => {
+      const text = document.getElementById('comment-input').value.trim();
+      const errEl = document.getElementById('comment-error');
+      const btn = document.getElementById('comment-submit-btn');
+      if (!text) { errEl.textContent = 'Please write something first.'; return; }
+      btn.disabled = true; btn.textContent = 'Transmitting…';
+      try {
+        const comments = await apiPost(`/journals/${journal._id}/comments`, { text });
+        if (Array.isArray(comments)) {
+          document.getElementById('comment-input').value = '';
+          errEl.textContent = '';
+          renderComments(comments, journal._id);
+        } else {
+          errEl.textContent = comments.message || 'Failed to post comment.';
+        }
+      } catch { errEl.textContent = 'Network error. Try again.'; }
+      btn.disabled = false; btn.textContent = 'Transmit Response';
+    });
+
+    // Enter to submit comment
+    document.getElementById('comment-input')?.addEventListener('keydown', e => {
+      if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+        document.getElementById('comment-submit-btn')?.click();
+      }
+    });
+  }
+
+  /* ============================================================
+     NAV STATE
+  ============================================================ */
+  function updateNav() {
+    const pill = document.getElementById('nav-user-pill');
+    if (Auth.isLoggedIn()) {
+      pill.textContent = `◈ ${Auth.user.username}`;
+      pill.href = `/profile.html?user=${Auth.user.username}`;
+    } else {
+      pill.textContent = 'Sign In';
+      pill.href = '/';
+    }
+  }
+
+  /* ============================================================
+     MAIN LOAD
+  ============================================================ */
+  async function loadPage() {
+    updateNav();
+    const params = new URLSearchParams(window.location.search);
+    const journalId = params.get('id');
+
+    if (!journalId) {
+      document.getElementById('page-content').innerHTML = `
+        <div class="not-found">
+          <div class="not-found-title">404</div>
+          <p class="not-found-sub">This journal doesn't exist — or hasn't been written yet.</p>
+        </div>`;
+      return;
+    }
+
+    try {
+      const journal = await apiGet(`/journals/${journalId}`);
+      if (journal.message) {
+        document.getElementById('page-content').innerHTML = `
+          <div class="not-found">
+            <div class="not-found-title">Not Found</div>
+            <p class="not-found-sub">This journal entry could not be found.</p>
+          </div>`;
+        return;
+      }
+      renderJournal(journal);
+    } catch(e) {
+      document.getElementById('page-content').innerHTML = `
+        <div class="not-found">
+          <div class="not-found-title">Error</div>
+          <p class="not-found-sub">Could not load this journal. Please try again.</p>
+        </div>`;
+    }
+  }
+
+  loadPage();
+</script>
+</body>
+</html>
