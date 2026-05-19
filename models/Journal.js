@@ -32,6 +32,10 @@ const JournalSchema = new mongoose.Schema({
     type: Boolean,
     default: true
   },
+  image: {
+    type: String,
+    default: ''
+  },
   likes: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'

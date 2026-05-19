@@ -3,6 +3,7 @@ const router = express.Router();
 const jwt = require('jsonwebtoken');
 const Journal = require('../models/Journal');
 const User = require('../models/User');
+const { upload } = require('../cloudinary');
 
 // Auth middleware
 const auth = (req, res, next) => {
@@ -16,6 +17,16 @@ const auth = (req, res, next) => {
     res.status(401).json({ message: 'Invalid token' });
   }
 };
+
+// Upload image
+router.post('/upload', auth, upload.single('image'), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ message: 'No image uploaded' });
+    res.json({ url: req.file.path, public_id: req.file.filename });
+  } catch (err) {
+    res.status(500).json({ message: 'Upload failed' });
+  }
+});
 
 // Get all public journals
 router.get('/', async (req, res) => {
@@ -46,14 +57,15 @@ router.get('/:id', async (req, res) => {
 // Create journal
 router.post('/', auth, async (req, res) => {
   try {
-    const { title, content, location, mood, isPublic } = req.body;
+    const { title, content, location, mood, isPublic, image } = req.body;
     const journal = new Journal({
       user: req.user.id,
       title,
       content,
       location,
       mood,
-      isPublic
+      isPublic,
+      image: image || ''
     });
     await journal.save();
     res.json(journal);
@@ -112,10 +124,7 @@ router.post('/:id/comments', auth, async (req, res) => {
     if (!journal) return res.status(404).json({ message: 'Journal not found' });
     if (!req.body.text || req.body.text.trim() === '')
       return res.status(400).json({ message: 'Comment cannot be empty' });
-    journal.comments.push({
-      user: req.user.id,
-      text: req.body.text.trim()
-    });
+    journal.comments.push({ user: req.user.id, text: req.body.text.trim() });
     await journal.save();
     const updated = await Journal.findById(req.params.id)
       .populate('comments.user', 'username avatar');
